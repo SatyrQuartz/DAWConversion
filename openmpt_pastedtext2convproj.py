@@ -5,6 +5,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("OpenMPT_pasted_in")
 parser.add_argument("ConvProj_out")
+parser.add_argument("tickrow")
 
 args = parser.parse_args()
 
@@ -29,7 +30,15 @@ def parse_omptcf_block(openmpt_block, firstrow):
 	openmpt_note = openmpt_block[0:3]
 	openmpt_note_key = openmpt_note[0:2]
 	openmpt_note_oct = openmpt_note[2:3]
-	openmpt_inst = openmpt_block[3:5]
+	openmpt_inst_firstnum = openmpt_block[3:4]
+	if openmpt_inst_firstnum == ':':
+		openmpt_inst_firstnum = '10'
+	if openmpt_inst_firstnum == ';':
+		openmpt_inst_firstnum = '11'
+	if openmpt_inst_firstnum == '<':
+		openmpt_inst_firstnum = '12'
+	openmpt_inst_secondnum = openmpt_block[4:5]
+	openmpt_inst = openmpt_inst_firstnum + openmpt_inst_secondnum
 	openmpt_modtype = openmpt_block[5:6]
 	openmpt_modvalue = openmpt_block[6:8]
 	openmpt_effect = openmpt_block[8:11]
@@ -95,6 +104,9 @@ def parse_ompt_pasted_file(filename):
 	first_row = 0
 	for openmpt_line in openmpt_lines:
 		linenumber += 1
+		if 'Name:' in openmpt_line:
+			linenumber += 1
+			continue
 		if inside_pattern == 1:
 			parse_ompt_row(openmpt_line, first_row)
 			first_row = 0
@@ -131,13 +143,14 @@ def entire_song_channel(patternstable, channel):
 	entire_song_channel = []
 	for specificpattern in orders:
 		if specificpattern != '+':
-			patterndata = get_channeldata_inside_pattern(patternstable,int(specificpattern),channel)
-			for patternrow in patterndata:
-				entire_song_channel.append(patternrow)
+			if specificpattern != '-':
+				patterndata = get_channeldata_inside_pattern(patternstable,int(specificpattern),channel)
+				for patternrow in patterndata:
+					entire_song_channel.append(patternrow)
 	return entire_song_channel
 
 def convertchannel2timednotes(channelsong, tickrow):
-	tickrowfinal = tickrow/6
+	tickrowfinal = (int(tickrow)/6)/4
 	output_channel = []
 	note_held = 0
 	current_inst = None
@@ -182,8 +195,7 @@ def convertchannel2timednotes(channelsong, tickrow):
 	return output_channel
 
 patternstable = parse_ompt_pasted_file(args.OpenMPT_pasted_in)
-tickrow = 3
-
+tickrow = args.tickrow
 tracks = []
 
 for channelnum in range(numofchannels):
