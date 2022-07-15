@@ -1,5 +1,6 @@
 import json
 import func_timednotes2listnotes
+import func_programsplit
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -163,7 +164,6 @@ def convertchannel2timednotes(channelsong, tickrow):
 					output_channel.append('seperate;')
 				if first_seperate == 0:
 					first_seperate = 1
-			output_channel.append('break;' + str(tickrowfinal))
 		elif notecommand[0] == 'Fade' or notecommand[0] == 'Cut' or notecommand[0] == 'Off':
 			if note_held == 1:
 				output_channel.append('note_off;' + str(current_key))
@@ -173,7 +173,6 @@ def convertchannel2timednotes(channelsong, tickrow):
 					output_channel.append('seperate;')
 				if first_seperate == 0:
 					first_seperate = 1
-			output_channel.append('break;' + str(tickrowfinal))
 		else:
 			if note_held == 1:
 				output_channel.append('note_off;' + str(current_key))
@@ -191,12 +190,13 @@ def convertchannel2timednotes(channelsong, tickrow):
 			if notecommand[2] == "vol":
 				volume = notecommand[3]
 			output_channel.append('note_on;' + str(notecommand[0])+','+str(volume))
-			output_channel.append('break;' + str(tickrowfinal))
+		output_channel.append('break;' + str(tickrowfinal))
 	return output_channel
 
 patternstable = parse_ompt_pasted_file(args.OpenMPT_pasted_in)
 tickrow = args.tickrow
-tracks = []
+
+nonseperatedtracks = []
 
 for channelnum in range(numofchannels):
 	func_timednotes2listnotes.tm2nlp_track_start()
@@ -204,22 +204,28 @@ for channelnum in range(numofchannels):
 	timednotes = convertchannel2timednotes(channelsong, tickrow)
 	singletrack = {}
 	singletrack['instrumentdata'] = {"plugindata": {},"usemasterpitch": 1,"pitch": 0.0,"basenote": 60,"plugin": "none"}
-	singletrack['name'] = "channel"
+	singletrack['name'] = "channel" + str(channelnum)
 	singletrack['muted'] = 0
 	singletrack['pan'] = 0.0
 	singletrack['vol'] = 0.3
 	singletrack['type'] = "instrument"
 	singletrack['placements'] = func_timednotes2listnotes.tm2nlp_parse_timednotes(timednotes)
-	tracks.append(singletrack)
+	nonseperatedtracks.append(singletrack)
+
+seperatedtracks = []
+
+for nonseperatedtrack in nonseperatedtracks:
+	nonseperatedtrack_table = func_programsplit.seperate_track_from_programs(nonseperatedtrack)
+	for nonseperatedtrack_table_track in nonseperatedtrack_table:
+		seperatedtracks.append(nonseperatedtrack_table_track)
 
 mainjson = {}
-
 mainjson['mastervol'] = 1.0
 mainjson['masterpitch'] = 0.0
 mainjson['timesig_numerator'] = 4.0
 mainjson['timesig_denominator'] = 4.0
 mainjson['bpm'] = 140.0
-mainjson['tracks'] = tracks
+mainjson['tracks'] = seperatedtracks
 
 with open(args.ConvProj_out, 'w') as f:
-    json.dump(mainjson, f)
+    json.dump(mainjson, f, indent=2)
